@@ -1,0 +1,23 @@
+Region: us-east-1
+Image:
+  Name: wgs-genomics-ami
+  Tags:
+    - Key: Name
+      Value: ParallelCluster-3.0-AMI
+    - Key: Version
+      Value: 3.0.0
+  RootVolume:
+    Size: 50
+
+Build:
+  InstanceType: c5.large
+  Components:
+    - Type: arn
+      Value: arn:aws:imagebuilder:us-east-1:aws:component/amazon-cloudwatch-agent-linux/1.0.1
+    - Type: script
+      Value: s3://wgs-snakemake-files-yoyo458/ami-build/setup_pipeline.sh
+  ParentImage: ami-0e6734d29d534f22d
+  UpdateOsPackages:
+    Enabled: true
+
+CustomS3Bucket: wgs-snakemake-files-yoyo458

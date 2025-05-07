@@ -1,0 +1,23 @@
+metadata:
+    MCF7:
+        - SRR12017692
+        - SRR12017693
+        - SRR12017694
+        - SRR12017695
+    MDA_MB134:
+        - SRR12017696
+        - SRR12017697
+        - SRR12017698
+        - SRR12017699
+    SUM44PE:
+        - SRR12017700
+        - SRR12017701
+        - SRR12017702
+        - SRR12017703
+    T47D:
+        - SRR12017704
+        - SRR12017705
+        - SRR12017706
+        - SRR12017707
+
+prior_mutation_rate: 0.001

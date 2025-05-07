@@ -1,0 +1,5 @@
+ExampleFull03:
+  region: ${region}
+  rollbackOnFailure: false
+  validationFailureLevel: WARNING
+  configuration: files/cluster-config.yaml

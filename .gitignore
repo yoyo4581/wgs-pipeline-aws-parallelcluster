@@ -1,0 +1,9 @@
+*.tfstate
+*.tfstate.*
+SraRunTable.csv
+temp.xml
+tfplan
+.terraform/
+.terraform.lock.hcl
+old-backup/
+orchestration-layer/layers/lambda_layers/*

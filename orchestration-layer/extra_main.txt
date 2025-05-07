@@ -1,0 +1,210 @@
+terraform {
+  required_providers {
+    aws-parallelcluster = {
+      source = "aws-tf/aws-parallelcluster"
+      version = "1.1.0"
+    }
+  }
+}
+
+provider "aws-parallelcluster" {
+  region = "us-east-1"
+}
+
+provider "aws" {
+    region = "us-east-1"
+    shared_credentials_files = ["/Users/Yahya/.aws/credentials"]
+}
+
+
+
+#terraform import aws_s3_bucket.wgs-genomics-input wgs-genomics-yoyo458
+resource "aws_s3_bucket" "wgs-genomics-input" {
+    bucket = "wgs-genomics-yoyo458"
+}
+
+
+resource "aws_s3_bucket" "snakemake-folder" {
+    bucket = "wgs-snakemake-files-yoyo458"
+}
+
+# Upload the Snakemake file
+resource "aws_s3_object" "snakemake_file" {
+  bucket = aws_s3_bucket.snakemake-folder.bucket
+  key    = "Snakefile"
+  source = "./snakemake-files/Snakefile"
+  acl    = "private"
+  etag   = filemd5("./snakemake-files/Snakefile")
+}
+
+resource "aws_s3_object" "snakemake-additional" {
+  for_each = fileset("./snakemake-files/snakemake_additional_files", "*.smk")
+
+  bucket = aws_s3_bucket.snakemake-folder.bucket
+  key    = "snakemake_additional_files/${each.value}"
+  source = "./snakemake-files/snakemake_additional_files/${each.value}"
+  # etag makes the file update when it changes; see https://stackoverflow.com/questions/56107258/terraform-upload-file-to-s3-on-every-apply
+  etag   = filemd5("./snakemake-files/snakemake_additional_files/${each.value}")
+}
+
+
+resource "aws_ecs_cluster" "fargate-cluster" {
+    name = "snakemake-fargate-cluster"
+}
+
+resource "aws_ecs_task_definition" "snakemake-task" {
+    family = "snakemake-fargate-task"
+    execution_role_arn = "arn:aws:iam::${var.aws_account_number}:role/ecsTaskExecutionRole"
+    network_mode = "awsvpc"
+    cpu = "512"
+    memory = "1024"
+    requires_compatibilities = ["FARGATE"]
+    container_definitions = jsonencode([
+        {
+            "name": "snakemake-runner",
+            "image": "${var.aws_account_number}.dkr.ecr.us-east-1.amazonaws.com/snakemake:latest",
+            "cpu": 512,
+            "memory": 1024,
+            "portMappings": [],
+            "essential": true,
+            "command": [
+                "sleep",
+                "infinity"
+            ],
+            "environment": [
+                {
+                    "name": "TIBANNA_DEFAULT_STEP_FUNCTION_NAME",
+                    "value": "tibanna_unicorn_my-unicorn-wgs"
+                }
+            ],
+            "mountPoints": [ 
+                {
+                    "sourceVolume"  = "fsx-lustre-volume"
+                    "containerPath" = "/mnt/fsx"
+                    "readOnly"      = false
+                }],
+            "volumesFrom": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/snakemake-logs",
+                    "awslogs-region": "us-west-2",
+                    "awslogs-stream-prefix": "snakemake"
+                }
+            }      
+        }
+    ])
+}
+
+
+
+data "archive_file" "trigger-snakemake-lambda" {
+    type = "zip"
+    source_file = "./lambda_functions/TriggerEventSnakemake/lambda_function.py"
+    output_path = "./lambda_functions/TriggerEventSnakemake/lambda_function.zip"
+}
+
+resource "aws_lambda_function" "trigger-snakemake" {
+    description = "Lambda function to trigger snakemake task"
+
+    function_name = "TriggerEventSnakemake"
+    role = "arn:aws:iam::${var.aws_account_number}:role/WGS-Trigger-LambdaRole"
+    handler = "lambda_function.lambda_handler"
+    runtime = "python3.10"
+    filename = data.archive_file.trigger-snakemake-lambda.output_path
+    source_code_hash = data.archive_file.trigger-snakemake-lambda.output_base64sha256
+    tags = {
+        "lambda-console:blueprint" = "s3-get-object-python"
+    }
+}
+
+resource "aws_lambda_permission" "allow_bucket" {
+    action = "lambda:InvokeFunction"
+    function_name = aws_lambda_function.trigger-snakemake.id
+    source_account = "${var.aws_account_number}"
+    principal = "s3.amazonaws.com"
+    source_arn = aws_s3_bucket.snakemake-folder.arn
+}
+
+resource "aws_s3_bucket_notification" "bucket_notification" {
+  bucket = aws_s3_bucket.snakemake-folder.id
+  eventbridge = true
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.trigger-snakemake.arn
+    events              = ["s3:ObjectCreated:Put"]
+  }
+
+  depends_on = [aws_lambda_permission.allow_bucket]
+}
+
+
+data "archive_file" "check-task-awsem-lambda" {
+    type = "zip"
+    source_dir = "./lambda_functions/check_task_awsem_my-unicorn-wgs/check-task-repo/"
+    output_path = "./lambda_functions/check_task_awsem_my-unicorn-wgs/lambda_function.zip"
+}
+
+resource "aws_lambda_function" "check_task_unicorn" {
+    description = "check status of AWSEM run by interegating appropriate files on S3 "
+
+    function_name = "check_task_awsem_my-unicorn-wgs"
+    role = "arn:aws:iam::${var.aws_account_number}:role/tibanna_my-unicorn-wgs_check_task_awsem"
+    handler = "service.handler"
+    runtime = "python3.11"
+    filename = data.archive_file.check-task-awsem-lambda.output_path
+    source_code_hash = data.archive_file.check-task-awsem-lambda.output_base64sha256
+    memory_size = 256
+    timeout = 300
+    environment {
+        variables = {
+            "SECURITY_GROUPS" = aws_security_group.spot_sg.id
+            "SUBNETS" = "${aws_subnet.spot_subnet_1.id},${aws_subnet.spot_subnet_2.id}"
+            "TIBANNA_DEFAULT_STEP_FUNCTION_NAME" = "tibanna_unicorn_my-unicorn-wgs"
+            "TIBANNA_VERSION" = "5.5.0"
+        }
+    }
+    vpc_config {
+        ipv6_allowed_for_dual_stack = false
+        security_group_ids = [aws_security_group.spot_sg.id]
+        subnet_ids = [aws_subnet.spot_subnet_1.id, aws_subnet.spot_subnet_2.id]
+    }
+}
+
+
+data "archive_file" "run-task-awsem-lambda" {
+    type = "zip"
+    source_dir = "./lambda_functions/run_task_awsem_my-unicorn-wgs/run-task-repo/"
+    output_path = "./lambda_functions/run_task_awsem_my-unicorn-wgs/lambda_function.zip"
+}
+
+resource "aws_lambda_function" "run_task_unicorn" {
+    description = "launch an ec2 instance"
+
+    function_name = "run_task_awsem_my-unicorn-wgs"
+    role = "arn:aws:iam::${var.aws_account_number}:role/tibanna_my-unicorn-wgs_run_task_awsem"
+    handler = "service.handler"
+    runtime = "python3.11"
+    filename = data.archive_file.run-task-awsem-lambda.output_path
+    source_code_hash = data.archive_file.run-task-awsem-lambda.output_base64sha256
+    memory_size = 256
+    timeout = 300
+    environment {
+        variables = {
+            "SECURITY_GROUPS" = aws_security_group.spot_sg.id
+            "SUBNETS" = "${aws_subnet.spot_subnet_1.id},${aws_subnet.spot_subnet_2.id}"
+            "AWS_S3_ROLE_NAME" = "tibanna_my-unicorn-wgs_for_ec2"
+            "TIBANNA_REPO_BRANCH" = "master"
+            "TIBANNA_REPO_NAME" =  "4dn-dcic/tibanna"
+            "TIBANNA_VERSION" = "5.5.0"
+        }
+    }
+    vpc_config {
+        ipv6_allowed_for_dual_stack = false
+        security_group_ids = [aws_security_group.spot_sg.id]
+        subnet_ids = [aws_subnet.spot_subnet_1.id, aws_subnet.spot_subnet_2.id]
+    }
+}
+
+
+

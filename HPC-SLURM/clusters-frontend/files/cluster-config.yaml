@@ -1,0 +1,83 @@
+Region: ${region}
+Image:
+  Os: ubuntu2204
+  CustomAmi: ${ami_id}
+HeadNode:
+  InstanceType: t3.large
+  Networking:
+    SubnetId: ${subnet}
+    AdditionalSecurityGroups:
+      - ${default_sg}
+  Ssh:
+    KeyName: ${key_pair}
+  Iam:
+    AdditionalIamPolicies:
+      - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      - Policy: arn:aws:iam::aws:policy/SecretsManagerReadWrite
+      - Policy: arn:aws:iam::aws:policy/AmazonS3FullAccess
+Scheduling:
+  Scheduler: slurm
+  SlurmQueues:
+    - Name: demo
+      CapacityType: SPOT
+      Networking:
+        SubnetIds:
+          - ${subnet}
+      Iam:
+        AdditionalIamPolicies:
+          - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+          - Policy: arn:aws:iam::aws:policy/SecretsManagerReadWrite
+          - Policy: arn:aws:iam::aws:policy/AmazonS3FullAccess
+      ComputeResources:
+        - Name: compute-1
+          InstanceType: t3.small
+          MinCount: 0
+          MaxCount: 4
+  SlurmSettings:
+    QueueUpdateStrategy: TERMINATE
+    Database: 
+      Uri: ${db_uri}
+      UserName: ${db_username}
+      PasswordSecretArn: ${secret_arn}
+      DatabaseName: ${db_name}
+SharedStorage:
+  - MountDir: /workflows
+    Name: efs-wgs-hpc
+    StorageType: Efs
+  - MountDir: /shared
+    Name: fsx-${project_name}
+    StorageType: FsxLustre
+    FsxLustreSettings:
+      StorageCapacity: 1200
+      DeploymentType: PERSISTENT_2
+      DataCompressionType: LZ4
+      StorageType: SSD
+      PerUnitStorageThroughput: 125
+      DataRepositoryAssociations:
+      - Name: genomics-repo
+        BatchImportMetaDataOnCreate: true
+        DataRepositoryPath: s3://wgs-genomics-yoyo458
+        ImportedFileChunkSize: 128
+        FileSystemPath: /shared/genomics-repo
+        AutoExportPolicy:
+          - NEW
+          - CHANGED
+          - DELETED
+        AutoImportPolicy:
+          - NEW
+          - CHANGED
+          - DELETED
+LoginNodes:
+  Pools:
+    - Name: login
+      InstanceType: t3.small
+      Count: 1
+      Networking:
+        SubnetIds:
+          - ${subnet}
+      Iam:
+        AdditionalIamPolicies:
+          - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+          - Policy: arn:aws:iam::aws:policy/SecretsManagerReadWrite
+          - Policy: arn:aws:iam::aws:policy/AmazonS3FullAccess
+      GracetimePeriod: 3
