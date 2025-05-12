@@ -7,4 +7,4 @@ tfplan
 .terraform.lock.hcl
 old-backup/
 orchestration-layer/layers/lambda_layers/*
-.snakemake
+/.snakemake/
