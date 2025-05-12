@@ -32,7 +32,7 @@ if ! conda info --envs | grep -q "^wgsEnv\s"; then
   echo "Creating wgsEnv environment..."
   mamba create -y -n wgsEnv -c conda-forge -c bioconda \
     snakemake=7.19.1 sra-tools \
-    samtools bedtools fastqc multiqc qualimap trimmomatic picard gatk4
+    samtools bedtools fastqc multiqc qualimap trimmomatic picard gatk4 bwa
 else
   echo "wgsEnv already exists."
 fi

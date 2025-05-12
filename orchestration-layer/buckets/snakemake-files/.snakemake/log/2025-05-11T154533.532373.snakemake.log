@@ -1,0 +1,37 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job stats:
+job             count    min threads    max threads
+------------  -------  -------------  -------------
+all                 1              1              1
+index_genome        1              1              1
+total               2              1              1
+
+Select jobs to execute...
+
+[Sun May 11 15:45:33 2025]
+rule index_genome:
+    input: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+    output: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.amb, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.ann, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.bwt, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.pac, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.sa
+    log: logs/bwa_index/Homo_sapiens.GRCh38.dna.primary_assembly.fa.log
+    jobid: 1
+    reason: Missing output files: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.ann
+    wildcards: genome=Homo_sapiens.GRCh38.dna.primary_assembly, alg=fa
+    resources: tmpdir=/tmp
+
+v3.13.2/bio/bwa/index
+[Sun May 11 15:45:34 2025]
+Error in rule index_genome:
+    jobid: 1
+    input: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+    output: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.amb, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.ann, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.bwt, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.pac, ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.sa
+    log: logs/bwa_index/Homo_sapiens.GRCh38.dna.primary_assembly.fa.log (check log file(s) for error details)
+    shell:
+        v3.13.2/bio/bwa/index
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: .snakemake/log/2025-05-11T154533.532373.snakemake.log

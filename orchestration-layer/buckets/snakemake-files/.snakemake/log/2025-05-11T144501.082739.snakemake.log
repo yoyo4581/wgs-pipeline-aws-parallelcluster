@@ -1,0 +1,3 @@
+TypeError in file /mnt/c/Users/Yahya/Documents/AutomatedWGSSnakemakeHPC/orchestration-layer/buckets/snakemake-files/reference-build.smk, line 13:
+not enough arguments for format string
+  File "/mnt/c/Users/Yahya/Documents/AutomatedWGSSnakemakeHPC/orchestration-layer/buckets/snakemake-files/reference-build.smk", line 13, in <module>

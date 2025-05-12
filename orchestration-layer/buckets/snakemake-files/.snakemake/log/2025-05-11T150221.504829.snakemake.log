@@ -1,0 +1,41 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job stats:
+job               count    min threads    max threads
+--------------  -------  -------------  -------------
+all                   1              1              1
+get_genome_ref        1              1              1
+index_genome          1              1              1
+total                 3              1              1
+
+Select jobs to execute...
+
+[Sun May 11 15:02:21 2025]
+rule get_genome_ref:
+    output: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+    jobid: 2
+    reason: Missing output files: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa; Code has changed since last execution
+    resources: tmpdir=/tmp
+
+
+        mkdir -p ../data/reference/GRCh38
+        curl -o ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz http://ftp.ensemble.org/pub/current/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+        gunzip ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz 
+        
+[Sun May 11 15:02:22 2025]
+Error in rule get_genome_ref:
+    jobid: 2
+    output: ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+    shell:
+        
+        mkdir -p ../data/reference/GRCh38
+        curl -o ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz http://ftp.ensemble.org/pub/current/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+        gunzip ../data/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz 
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: .snakemake/log/2025-05-11T150221.504829.snakemake.log
