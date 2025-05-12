@@ -1,7 +1,0 @@
-Building DAG of jobs...
-File path ' ../data /reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.ann ' starts with whitespace. This is likely unintended. It can also lead to inconsistent results of the file-matching approach used by Snakemake.
-File path ' ../data /reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.ann ' ends with whitespace. This is likely unintended. It can also lead to inconsistent results of the file-matching approach used by Snakemake.
-MissingInputException in rule all in file /mnt/c/Users/Yahya/Documents/AutomatedWGSSnakemakeHPC/orchestration-layer/buckets/snakemake-files/reference-build.smk, line 3:
-Missing input files for rule all:
-    affected files:
-         ../data /reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.ann 
