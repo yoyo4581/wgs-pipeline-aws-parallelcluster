@@ -1,33 +1,14 @@
-#------------------------------
-# Merge all tumor-only runs to create 1 bam file
-#----------------------------------------
-
-rule mergeBAMS:
-    input:
-        lambda wildcards: expand(
-            "mapped_reads/{cell_line}/sorted_{SRA}.bam",
-            cell_line=wildcards.cell_line,
-            SRA=config["metadata"][wildcards.cell_line])
-    output:
-        temp("mapped_reads/{cell_line}/{cell_line}_merged.bam")
-    threads: 4
-    shell:
-        """
-        samtools merge -@ {threads} {output} {input}
-        """
-
-
 #-------------------------
 # MarkDuplicatesSpark (GATK)
 #----------------------------
 rule markDups:
     input:
-        "mapped_reads/{cell_line}/{cell_line}_merged.bam"
+        f"{data_repo}/input/{{cell_line}}/{{cell_line}}_merged.bam"
     output:
-        bam=temp("mapped_reads/{cell_line}/{cell_line}_merged_sorted_dedup.bam"),
-        mark="results/{cell_line}/marked_duplicates.txt"
+        bam=temp(f"{data_repo}/input/{{cell_line}}/{{cell_line}}_merged_sorted_dedup.bam"),
+        mark=f"{data_repo}/output/{{cell_line}}/marked_duplicates.txt"
     log:
-        "logs/{cell_line}_markDups.txt"
+        f"{data_repo}/logs/{{cell_line}}_markDups.txt"
     threads:4
     shell:
         """
@@ -42,11 +23,11 @@ rule markDups:
 #---------------------------
 rule ModelBuild:
     input:
-        marked_bam="mapped_reads/{cell_line}/{cell_line}_merged_sorted_dedup.bam",
-        fa="data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
-        vcf_known="supporting_Files/Homo_sapiens_assembly38.dbsnp138.vcf",
+        marked_bam=f"{data_repo}/input/{{cell_line}}/{{cell_line}}_merged_sorted_dedup.bam",
+        fa=f"{data_repo}/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        vcf_known=f"{data_repo}/reference/supportingFiles/Homo_sapiens_assembly38.dbsnp138.vcf",
     output:
-        "results/{cell_line}/recal_data.table"
+        f"{data_repo}/output/{{cell_line}}/recal_data.table"
     shell:
         """
         gatk BaseRecalibrator -I {input.marked_bam} -R {input.fa} --known-sites {input.vcf_known} -O {output}
@@ -54,11 +35,11 @@ rule ModelBuild:
 
 rule ApplyBaseQualityScore:
     input:
-        marked_bam="mapped_reads/{cell_line}/{cell_line}_merged_sorted_dedup.bam",
-        fa="data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
-        bqsr_file="results/{cell_line}/recal_data.table",
+        marked_bam=f"{data_repo}/input/{{cell_line}}/{{cell_line}}_merged_sorted_dedup.bam",
+        fa=f"{data_repo}/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        bqsr_file=f"{data_repo}/output/{{cell_line}}/recal_data.table",
     output:
-        "mapped_reads/{cell_line}/{cell_line}_processed_merged.bam"
+        f"{data_repo}/input/{{cell_line}}/{{cell_line}}_processed_merged.bam"
     shell:
         """
         gatk ApplyBQSR -I {input.marked_bam} -R {input.fa} --bqsr-recal-file {input.bqsr_file} -O {output}
@@ -68,14 +49,14 @@ rule ApplyBaseQualityScore:
 # Collect Alignment Summary metrics
 #------------------
 
-rule SummaryMetrics:
+rule MergedAlignmentMetrics:
     input:
-        bam="mapped_reads/{cell_line}/{cell_line}_processed_merged.bam",
-        fa="data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        bam=f"{data_repo}/input/{{cell_line}}/{{cell_line}}_processed_merged.bam",
+        fa=f"{data_repo}/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
     output:
-        align="results/{cell_line}/alignmentReports/{cell_line}_alignment_metrics.txt",
-        insert_file="results/{cell_line}/alignmentReports/{cell_line}_insert_size_metrics.txt",
-        histo="results/{cell_line}/alignmentReports/{cell_line}_insert_size_histogram.pdf",
+        align=f"{data_repo}/output/{{cell_line}}/alignmentReports/{{cell_line}}_alignment_metrics.txt",
+        insert_file=f"{data_repo}/output/{{cell_line}}/alignmentReports/{{cell_line}}_insert_size_metrics.txt",
+        histo=f"{data_repo}/output/{{cell_line}}/alignmentReports/{{cell_line}}_insert_size_histogram.pdf",
     shell:
         """
         gatk CollectAlignmentSummaryMetrics R={input.fa} I={input.bam} O={output.align}
@@ -87,13 +68,13 @@ rule SummaryMetrics:
 #------------------------
 rule MultiQC_alignment:
     input:
-        insert_metrics="results/{cell_line}/alignmentReports/{cell_line}_insert_size_metrics.txt",
-        alignment_metrics="results/{cell_line}/alignmentReports/{cell_line}_alignment_metrics.txt",
+        insert_metrics=f"{data_repo}/output/{{cell_line}}/alignmentReports/{{cell_line}}_insert_size_metrics.txt",
+        alignment_metrics=f"{data_repo}/output/{{cell_line}}/alignmentReports/{{cell_line}}_alignment_metrics.txt",
     output:
-        "results/{cell_line}/{cell_line}_alignmentMultiQC.html"
+        f"{data_repo}/output/{{cell_line}}/{{cell_line}}_alignmentMultiQC.html"
     shell:
-        """
-        mutliqc results/{wildcards.cell_line}/alignmentReports/ -o results/{wildcards.cell_line}/ --filename {wildcards.cell_line}_alignmentMultiQC.html
+        f"""
+        mutliqc {data_repo}/output/{{wildcards.cell_line}}/alignmentReports/ -o {data_repo}/output/{{wildcards.cell_line}}/ --filename {{wildcards.cell_line}}_alignmentMultiQC.html
         """
 
 
@@ -104,13 +85,13 @@ rule MultiQC_alignment:
 
 rule SomaticVariantsCall:
     input:
-        fa="data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
-        bam="mapped_reads/{cell_line}/{cell_line}_processed_merged.bam",
-        germline="supporting_Files/mutect2_supporting_files/af-only-gnomad.hg38.vcf.gz",
-        pon="supporting_files/mutect2_supporting_files/1000g_pon.hg38.vcf.gz",
+        fa=f"{data_repo}/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        bam=f"{data_repo}/input/{{cell_line}}/{{cell_line}}_processed_merged.bam",
+        germline=f"{data_repo}/reference/supportingFiles/mutect2_files/af-only-gnomad.hg38.vcf.gz",
+        pon=f"{data_repo}/reference/supportingFiles/mutect2_files/1000g_pon.hg38.vcf.gz",
     output:
-        variants="variants/{cell_line}/{cell_line}_somatic_variants_mutect2.vcf.gz",
-        read_orient="variants/{cell_line}/{cell_line}_fir2.tar.gz",
+        variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_somatic_variants_mutect2.vcf.gz",
+        read_orient=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_fir2.tar.gz",
     shell:
         """
         gatk Mutect2 -R {input.fa} \
@@ -126,11 +107,11 @@ rule SomaticVariantsCall:
 #-----------------------
 rule GetPileUpSummaries:
     input:
-        bam="mapped_reads/{cell_line}/{cell_line}_processed_merged.bam",
-        germline="supporting_Files/mutect2_supporting_files/af-only-gnomad.hg38.vcf.gz",
-        interval="supporting_Files/mutect2_supporting_files/exome_calling_regions.v1.1.interval_list",
+        bam=f"{data_repo}/input/{{cell_line}}/{{cell_line}}_processed_merged.bam",
+        germline=f"{data_repo}/reference/supportingFiles/mutect2_files/af-only-gnomad.hg38.vcf.gz",
+        interval=f"{data_repo}/reference/supportingFiles/mutect2_files/exome_calling_regions.v1.1.interval_list",
     output:
-        pileup="variants/{cell_line}/{cell_line}_getpileupsummaries.table"
+        pileup=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_getpileupsummaries.table"
     shell:
         """
         gatk GetPileupSummaries \
@@ -146,9 +127,9 @@ rule GetPileUpSummaries:
 #---------------------------
 rule CalculateContamination:
     input:
-        pileup="variants/{cell_line}/{cell_line}_getpileupsummaries.table"
+        pileup=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_getpileupsummaries.table"
     output:
-        contam_table="variants/{cell_line}/{cell_line}_contamination.table"
+        contam_table=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_contamination.table"
     shell:
         """
         gatk CalculateContamination \
@@ -162,9 +143,9 @@ rule CalculateContamination:
 
 rule ReadOnlyArtifacts:
     input:
-        read_orient="variants/{cell_line}/{cell_line}_fir2.tar.gz"
+        read_orient=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_fir2.tar.gz"
     output:
-        model="variants/{cell_line}/{cell_line}_read_orientation_model.tar.gz"
+        model=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_read_orientation_model.tar.gz"
     shell:
         """
         gatk LearnReadOrientationModel \
@@ -177,12 +158,12 @@ rule ReadOnlyArtifacts:
 
 rule FilterVariants:
     input:
-        fa="data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
-        variants="variants/{cell_line}/{cell_line}_somatic_variants_mutect2.vcf.gz",
-        contam_table="variants/{cell_line}/{cell_line}_contamination.table",
-        priors="variants/{cell_line}/{cell_line}_read_orientation_model.tar.gz"
+        fa=f"{data_repo}/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_somatic_variants_mutect2.vcf.gz",
+        contam_table=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_contamination.table",
+        priors=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_read_orientation_model.tar.gz"
     output:
-        filt_variants="variants/{cell_line}/{cell_line}_HG008_somatic_variants_filtered_mutect2.vcf"
+        filt_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_HG008_somatic_variants_filtered_mutect2.vcf"
     shell:
         """
         gatk FilterMutectCalls \
@@ -201,11 +182,11 @@ rule FilterVariants:
 
 rule Funcutation:
     input:
-        fa="data/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
-        filt_variants="variants/{cell_line}/{cell_line}_HG008_somatic_variants_filtered_mutect2.vcf",
-        data_sources_path="/Users/Yahya/Documents/demo/tools/funcotator/hg38/funcotator_dataSources.v1.7.hg38.20230908s"
+        fa=f"{data_repo}/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+        filt_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_HG008_somatic_variants_filtered_mutect2.vcf",
+        data_sources_path=f"{data_repo}/reference/supportingFiles/funcotator_dataSources.v1.8.hg38.20230908s"
     output:
-        funcotated_variants="variants/{cell_line}/{cell_line}_HG008_somatic_variants_funcotated.vcf"
+        funcotated_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_HG008_somatic_variants_funcotated.vcf"
     shell:
         """
         gatk Funcotator \
@@ -222,9 +203,9 @@ rule Funcutation:
 #------------------------------
 rule VariantsToTable:
     input:
-        annotated_variants="variants/{cell_line}/{cell_line}_HG008_somatic_variants_funcotated.vcf"
+        annotated_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_HG008_somatic_variants_funcotated.vcf"
     output:
-        tabular_variants= "variants/{cell_line}/{cell_line}_output_snps.table"
+        tabular_variants= f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_output_snps.table"
     shell:
         """
         gatk VariantsToTable \
@@ -238,10 +219,10 @@ rule VariantsToTable:
 #---------------------------
 rule TableToTSV:
     input:
-        tabular_variants="variants/{cell_line}/{cell_line}_output_snps.table",
-        annotated_variants="variants/{cell_line}/{cell_line}_HG008_somatic_variants_funcotated.vcf"
+        tabular_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_output_snps.table",
+        annotated_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_HG008_somatic_variants_funcotated.vcf"
     output:
-        tsv_variants="variants/{cell_line}/{cell_line}_output_snps.tsv"
+        tsv_variants=f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_output_snps.tsv"
     shell:
         """
         grep "Funcotation fields are: " {input.annotated_variants} | sed 's/|/\t/g' > {output.tsv_variants}

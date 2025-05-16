@@ -31,7 +31,7 @@ source "$INSTALL_DIR/etc/profile.d/mamba.sh"
 if ! conda info --envs | grep -q "^wgsEnv\s"; then
   echo "Creating wgsEnv environment..."
   mamba create -y -n wgsEnv -c conda-forge -c bioconda \
-    snakemake=7.19.1 sra-tools \
+    snakemake snakemake-executor-plugin-slurm sra-tools \
     samtools bedtools fastqc multiqc qualimap trimmomatic picard gatk4 bwa
 else
   echo "wgsEnv already exists."
@@ -41,3 +41,10 @@ fi
 echo "Adjusting permissions..."
 chmod -R a+rx "$INSTALL_DIR"
 chmod -R a+rX "$INSTALL_DIR/envs"
+
+# downloading gsutil
+curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
+
+tar -xf google-cloud-cli-linux-x86_64.tar.gz
+
+./google-cloud-sdk/install.sh --usage-reporting true --path-update true -q

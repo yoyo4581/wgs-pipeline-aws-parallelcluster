@@ -1,7 +1,7 @@
 from globals import data_repo, cell_line_sra_pairs
 
 # Rule to generate FastQC reports on each forward/rev of each run
-rule preQC_report:
+rule preTrim_QCreport:
     input:
         forw=f"{data_repo}/temp/{{cell_line}}/{{SRA}}/{{SRA}}_1.fastq.gz",
         reve=f"{data_repo}/temp/{{cell_line}}/{{SRA}}/{{SRA}}_2.fastq.gz"
@@ -14,7 +14,7 @@ rule preQC_report:
         """
 
 # Rule to generate MultiQC report of pre-trimmed reads in a results directory organized by cell line
-rule preMultiQC:
+rule preTrim_MultiQC:
     input:
         expand(
             f"{data_repo}/output/{{cell_line}}/{{SRA}}/prefastQC/",
@@ -54,7 +54,7 @@ rule trim:
 
 
 # Rule to generate FastQC reports on each forward/rev of each run from trimmed reads
-rule postQC_report:
+rule postTrim_QCreport:
     input:
         forw=f"{data_repo}/input/{{cell_line}}/{{SRA}}_1_trimmed_paired.fastq.gz",
         reve=f"{data_repo}/input/{{cell_line}}/{{SRA}}_2_trimmed_paired.fastq.gz"
@@ -68,7 +68,7 @@ rule postQC_report:
 
 
 # Rule to generate MultiQC report in a results directory organized by cell line
-rule postMultiQC:
+rule postTrim_MultiQC:
     input:
         expand(
             f"{data_repo}/output/{{cell_line}}/{{SRA}}/postfastQC/",
@@ -84,7 +84,7 @@ rule postMultiQC:
         """
 
 
-rule bwa_mem:
+rule readAlign_bwamem:
     input:
         reads=[f"{data_repo}/input/{{cell_line}}/{{SRA}}_1_trimmed_paired.fastq.gz", 
         f"{data_repo}/input/{{cell_line}}/{{SRA}}_2_trimmed_paired.fastq.gz"],
@@ -103,26 +103,31 @@ rule bwa_mem:
         "v5.0.0/bio/bwa/mem"
 
 
-rule deleteSamples:
-    input:
-        lambda wildcards: expand(
-            "mapped_reads/{cell_line}/sorted_{SRA}.bam",
-            cell_line=wildcards.cell_line,
-            SRA=config["metadata"][wildcards.cell_line]
-        )
-    output:
-        "data/deletedSamples.txt"
-    shell:
-        """
-        rm -r data/samples
-        echo "Samples Deleted after processing" > {output}
-        """
 
-
-rule samtools_index:
+rule alignIndex:
     input:
-        "mapped_reads/{cell_line}/sorted_{SRA}.bam"
+        f"{data_repo}/input/{{cell_line}}/sorted_{{SRA}}.bam"
     output:
-        "mapped_reads/{cell_line}/sorted_{SRA}.bam.bai"
+        f"{data_repo}/input/{{cell_line}}/sorted_{{SRA}}.bam.bai"
     shell:
         "samtools index {input}"
+
+#------------------------------
+# Merge all tumor-only runs to create 1 bam file
+#----------------------------------------
+
+rule mergeBAMS:
+    input:
+        expand(
+            f"{data_repo}/input/{{cell_line}}/sorted_{{SRA}}.bam",
+            zip,
+            cell_line=[pair[0] for pair in cell_line_sra_pairs],
+            SRA = [ pair[1] for pair in cell_line_sra_pairs ]
+        )
+    output:
+        temp(f"{data_repo}/input/{{cell_line}}/{{cell_line}}_merged.bam")
+    threads: 4
+    shell:
+        """
+        samtools merge -@ {threads} {output} {input}
+        """

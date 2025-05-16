@@ -1,10 +1,10 @@
 import os
-from globals import data_repo, cell_line_sra_pairs
+from globals import data_repo, cell_line_sra_pairs, cell_line_single
 
 
 include: "snakemake_additional_files/readMapping.smk"
-# include: "snakemake_additional_files/alignmentQC.smk"
-# include: "snakemake_additional_files/variantCalling.smk"
+include: "snakemake_additional_files/alignmentQC.smk"
+include: "snakemake_additional_files/variantCalling.smk"
 
 
 def get_sra_dirs():
@@ -16,14 +16,18 @@ def get_sra_dirs():
 rule all:
     input:
         #f"{data_repo}/output/{{cell_line}}/postMultiqc_report.html"
-        expand(f"{data_repo}/input/{{cell_line}}/sorted_{{SRA}}.bam",
+        expand(f"{data_repo}/output/variants/{{cell_line}}/{{cell_line}}_output_snps.tsv",
                 zip,
                 cell_line=[pair[0] for pair in cell_line_sra_pairs],
-                SRA = [ pair[1] for pair in cell_line_sra_pairs ])        
-                # expand(f"{data_repo}/input/{{cell_line}}/alignmentReports/{{cell_line}}_alignment_metrics.txt", 
-        #        zip, 
-        #        cell_line=[pair[0] for pair in cell_line_sra_pairs], 
-        #        SRA=[pair[1] for pair in cell_line_sra_pairs]),
+                SRA = [ pair[1] for pair in cell_line_sra_pairs ]),
+        expand(f"{data_repo}/output/{{cell_line}}/postMultiqc_report.html",
+                cell_line=[cell for cell in cell_line_single]),
+        expand(f"{data_repo}/output/{{cell_line}}/preMultiqc_report.html",
+                cell_line=[cell for cell in cell_line_single]),
+        expand(f"{data_repo}/output/{{cell_line}}/{{SRA}}/alignmentMultiqc_report.html",
+                zip,
+                cell_line=[pair[0] for pair in cell_line_sra_pairs],
+                SRA = [ pair[1] for pair in cell_line_sra_pairs ]),             
     log:
         "logs/all_rule_log.txt"
     shell:
@@ -31,7 +35,7 @@ rule all:
 
 # Takes in the input file, config.yaml. Doesn't do anything with it because it has already been processed into cell)line)sra_pairs. What it does do is retrieve SRA names from cell_line_sra_pairs. 
 #1 Gets called first because directories_created.txt is not found
-rule retrieveData:
+rule retrieveSRA:
     output:
         temp(f"{data_repo}/temp/{{cell_line}}/{{SRA}}/{{SRA}}.sra")
     shell:
@@ -42,7 +46,7 @@ rule retrieveData:
 
 
 # Gets called third, unpacks and deletes the .sra file into protected gunziped files of split paired-end data
-rule unpackData:
+rule unpackSRA:
     input:
        f"{data_repo}/temp/{{cell_line}}/{{SRA}}/{{SRA}}.sra"
     output:

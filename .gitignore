@@ -8,3 +8,4 @@ tfplan
 old-backup/
 orchestration-layer/layers/lambda_layers/*
 **/.snakemake/
+extra_main.txt
