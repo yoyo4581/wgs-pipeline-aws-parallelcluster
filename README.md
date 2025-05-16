@@ -6,4 +6,5 @@ Terraform Infrastructure as Code (IaC) to Deploy an AWS HPC Cluster using AWS Pa
 
 
 <img src="orchestration-layer/buckets/snakemake-files/pipeline_rulegraph.svg" alt="DAG Visualization" width="600"/>
-***Plot built using Snakevision repo.***
+
+***Plot built using Snakevision repo***
