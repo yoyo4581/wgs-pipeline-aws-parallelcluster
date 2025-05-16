@@ -3,3 +3,6 @@ Terraform Infrastructure as Code (IaC) to Deploy an AWS HPC Cluster using AWS Pa
 
 
 ***This setup automates the creation of a high-performance computing (HPC) environment for running a whole genome sequencing (WGS) pipeline. The pipeline is parallelized with Snakemake and managed using SLURM for job scheduling and resource allocation. SLURM accounting is enabled to track resource usage. The solution also includes AWS automation resources for seamless deployment and management of the infrastructure.***
+
+
+![DAG Visualization](orchestration-layer/buckets/snakemake-files/pipeline_rulegraph.svg)
